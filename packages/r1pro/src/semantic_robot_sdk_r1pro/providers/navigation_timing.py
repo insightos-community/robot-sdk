@@ -1,18 +1,3 @@
-# Copyright 2026 InsightOS
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """移动底盘路径的连续朝向和 Ruckig 限制辅助。"""
 
 import math
@@ -55,10 +40,9 @@ def base_segment_targets(route, *, initial_yaw, final_yaw, preserve_yaw=False):
         target_yaw = _nearest_angle(initial_yaw, final_yaw)
         if not math.isclose(target_yaw, initial_yaw, abs_tol=1e-6):
             current = route[-1]
-            targets.append(
-                {"base_x": current[0], "base_y": current[1], "base_yaw": target_yaw}
-            )
+            targets.append({"base_x": current[0], "base_y": current[1], "base_yaw": target_yaw})
     return targets
+
 
 def base_limits(capabilities, maximum_speed_mps, *, motion_scale=1.0):
     """生成底盘连续轨迹限制。

@@ -1,18 +1,3 @@
-# Copyright 2026 InsightOS
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """R1 Pro 真实运动学资产集成测试。
 
 该测试用于阻止三类问题再次出现：URDF package 名与资产目录不一致、碰撞对未
@@ -248,9 +233,7 @@ def test_r1pro_nonzero_ik_and_collision_model() -> None:
         assert actual_left.position == pytest.approx(
             shared_only_target.position, abs=endpoint_tolerance
         )
-        assert actual_right.position == pytest.approx(
-            right_anchor.position, abs=endpoint_tolerance
-        )
+        assert actual_right.position == pytest.approx(right_anchor.position, abs=endpoint_tolerance)
         assert actual_right.quaternion_xyzw == pytest.approx(
             right_anchor.quaternion_xyzw, abs=endpoint_tolerance
         )

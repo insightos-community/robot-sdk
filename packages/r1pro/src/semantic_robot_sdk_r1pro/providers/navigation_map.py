@@ -1,18 +1,3 @@
-# Copyright 2026 InsightOS
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """本地导航使用的地图来源；Ability 不需要构造占据栅格。"""
 
 from __future__ import annotations
@@ -71,9 +56,7 @@ class StaticNavigationMapSource:
             raise PlanningError(f"navigation_map_source 配置不合法：{error}") from error
         return cls(grid)
 
-    def get_occupancy(
-        self, *, robot_id, state, goal, excluded_source_refs=frozenset()
-    ):
+    def get_occupancy(self, *, robot_id, state, goal, excluded_source_refs=frozenset()):
         if self.occupancy.frame_id != goal.frame_id:
             raise PlanningError("导航地图与目标坐标系不一致")
         return self.occupancy
@@ -119,10 +102,7 @@ class RuntimeSceneNavigationMapSource:
 
         center_z = float(item["pose"]["position"][2])
         half_z = float(item["extent"][2]) / 2.0
-        return (
-            center_z + half_z >= self.obstacle_z_min
-            and center_z - half_z <= self.obstacle_z_max
-        )
+        return center_z + half_z >= self.obstacle_z_min and center_z - half_z <= self.obstacle_z_max
 
     def get_occupancy(
         self,
@@ -148,9 +128,7 @@ class RuntimeSceneNavigationMapSource:
         if frame_id != goal.frame_id:
             raise PlanningError("Runtime 场景快照与导航目标坐标系不一致")
 
-        excluded = {
-            value.rstrip("/").rsplit("/", 1)[-1] for value in excluded_source_refs
-        }
+        excluded = {value.rstrip("/").rsplit("/", 1)[-1] for value in excluded_source_refs}
         # 被 Robot 实时持有的物体仍存在于 SceneSnapshot 和碰撞反馈中，只从底盘
         # 中心的占据栅格里排除。否则重规划会把随 Robot 一起运动的箱体误判为
         # 当前路径障碍；这不是 Semantic Map 规则，也不会绕过真实接触安全检查。
@@ -158,8 +136,7 @@ class RuntimeSceneNavigationMapSource:
             item
             for item in snapshot.get("objects", [])
             if item.get("extent")
-            and str(item.get("source_id", "")).rstrip("/").rsplit("/", 1)[-1]
-            not in excluded
+            and str(item.get("source_id", "")).rstrip("/").rsplit("/", 1)[-1] not in excluded
             and self._z_overlaps_band(item)
         ]
         points = (
@@ -189,15 +166,12 @@ class RuntimeSceneNavigationMapSource:
         collision_boxes = []
         for item in objects:
             x, y, z = (float(value) for value in item["pose"]["position"][:3])
-            size_x, size_y, size_z = (
-                float(value) for value in item["extent"][:3]
-            )
+            size_x, size_y, size_z = (float(value) for value in item["extent"][:3])
             collision_boxes.append(
                 (
                     x - size_x / 2,
-            # AABB上边界与栅格边界重合时，边界外的下一格没有真实重叠。
-            # 先多占一格、再膨胀底盘包络会让相同工位随浮点原点变化而忽隐忽现。
-
+                    # AABB上边界与栅格边界重合时，边界外的下一格没有真实重叠。
+                    # 先多占一格、再膨胀底盘包络会让相同工位随浮点原点变化而忽隐忽现。
                     y - size_y / 2,
                     z - size_z / 2,
                     x + size_x / 2,

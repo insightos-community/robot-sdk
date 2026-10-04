@@ -1,18 +1,3 @@
-# Copyright 2026 InsightOS
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """R1 Pro 本地关节轨迹 Provider。"""
 
 from __future__ import annotations
@@ -100,9 +85,7 @@ class LocalMotionProvider:
             raise PlanningError("同一条多段关节路径必须控制相同关节")
 
         limits = self._scaled_limits(speed_scale)
-        base_velocities = self._waypoint_velocities(
-            dict(state.joint_positions), goals, limits
-        )
+        base_velocities = self._waypoint_velocities(dict(state.joint_positions), goals, limits)
         selected = None
         last_error: PlanningError | None = None
         # Ruckig 对短段和非零边界速度都满足速度/加速度/jerk限制，但某些
@@ -132,9 +115,7 @@ class LocalMotionProvider:
                         current_velocity=current_velocity,
                         target_velocity=target_velocity,
                     )
-                    if not self._segment_follows_waypoint_direction(
-                        current, goal, segment
-                    ):
+                    if not self._segment_follows_waypoint_direction(current, goal, segment):
                         follows_geometry = False
                         break
                     planners.append(planner)
@@ -144,11 +125,7 @@ class LocalMotionProvider:
                             continue
                         points.append(
                             point.model_copy(
-                                update={
-                                    "time_from_start_s": (
-                                        offset + point.time_from_start_s
-                                    )
-                                }
+                                update={"time_from_start_s": (offset + point.time_from_start_s)}
                             )
                         )
                     offset = points[-1].time_from_start_s
@@ -160,9 +137,7 @@ class LocalMotionProvider:
                 follows_geometry = False
             if follows_geometry and points and effective_goals:
                 if velocity_scale < 1.0:
-                    diagnostics.append(
-                        f"内部路点速度缩放为 {velocity_scale:g}，避免短段越过后折返"
-                    )
+                    diagnostics.append(f"内部路点速度缩放为 {velocity_scale:g}，避免短段越过后折返")
                 selected = (
                     points,
                     diagnostics,
@@ -179,12 +154,8 @@ class LocalMotionProvider:
 
         # 只有整条多段路径的终点必须停稳。Ruckig终点可能残留约1e-18的
         # 浮点速度，这里按公共轨迹契约明确归零。
-        points[-1] = points[-1].model_copy(
-            update={"velocities": {name: 0.0 for name in names}}
-        )
-        collision_checked = self._check_collision(
-            state, points, environment=environment
-        )
+        points[-1] = points[-1].model_copy(update={"velocities": {name: 0.0 for name in names}})
+        collision_checked = self._check_collision(state, points, environment=environment)
         return MotionPlan(
             plan_id=str(uuid.uuid4()),
             robot_id=robot_id,
@@ -226,10 +197,10 @@ class LocalMotionProvider:
             [dict(point.positions) for point in points],
             tolerance_rad=waypoint_tolerance_rad,
         )
-        if max(
-            abs(projected_goals[0][name] - state.joint_positions[name])
-            for name in names
-        ) <= 1e-9:
+        if (
+            max(abs(projected_goals[0][name] - state.joint_positions[name]) for name in names)
+            <= 1e-9
+        ):
             projected_goals = projected_goals[1:]
         if not projected_goals:
             raise PlanningError("投影路径简化后没有有效运动目标")
@@ -250,8 +221,7 @@ class LocalMotionProvider:
                 "diagnostics": [
                     *plan.diagnostics,
                     *retimed.diagnostics,
-                    "投影路径从 "
-                    f"{len(points)} 个数值采样简化为 {len(projected_goals)} 个关节路点",
+                    f"投影路径从 {len(points)} 个数值采样简化为 {len(projected_goals)} 个关节路点",
                 ],
             }
         )
@@ -287,12 +257,8 @@ class LocalMotionProvider:
             for point in points
         ]
         stopped = {name: 0.0 for name in names}
-        retimed_points[0] = retimed_points[0].model_copy(
-            update={"velocities": stopped}
-        )
-        retimed_points[-1] = retimed_points[-1].model_copy(
-            update={"velocities": stopped}
-        )
+        retimed_points[0] = retimed_points[0].model_copy(update={"velocities": stopped})
+        retimed_points[-1] = retimed_points[-1].model_copy(update={"velocities": stopped})
         collision_checked = self._check_collision(
             state,
             _linear_joint_path_samples(retimed_points),
@@ -451,9 +417,7 @@ class LocalMotionProvider:
                 if callable(collision_reason):
                     reason = collision_reason(candidate, collision)
                 detail = f"：{reason}" if reason else ""
-                raise PlanningError(
-                    f"关节路径在 {point.time_from_start_s:.3f}s 存在碰撞{detail}"
-                )
+                raise PlanningError(f"关节路径在 {point.time_from_start_s:.3f}s 存在碰撞{detail}")
         return True
 
     def _resources(self, goal):
@@ -468,18 +432,14 @@ def _projected_path_time_scale(points, limits) -> float:
     """计算满足关节速度、加速度和jerk上限所需的统一时间倍率。"""
 
     durations = [
-        right.time_from_start_s - left.time_from_start_s
-        for left, right in zip(points, points[1:])
+        right.time_from_start_s - left.time_from_start_s for left, right in zip(points, points[1:])
     ]
     if any(duration <= 0 for duration in durations):
         raise PlanningError("投影路径时间必须严格递增")
 
     names = tuple(points[0].positions)
     segment_velocities = [
-        {
-            name: (right.positions[name] - left.positions[name]) / duration
-            for name in names
-        }
+        {name: (right.positions[name] - left.positions[name]) / duration for name in names}
         for left, right, duration in zip(points, points[1:], durations)
     ]
     velocity_ratio = max(
@@ -492,9 +452,7 @@ def _projected_path_time_scale(points, limits) -> float:
     acceleration_durations = []
     zero = {name: 0.0 for name in names}
     velocity_samples = [zero, *segment_velocities, zero]
-    for index, (left, right) in enumerate(
-        zip(velocity_samples, velocity_samples[1:])
-    ):
+    for index, (left, right) in enumerate(zip(velocity_samples, velocity_samples[1:])):
         if index == 0:
             duration = durations[0]
         elif index == len(durations):
@@ -502,9 +460,7 @@ def _projected_path_time_scale(points, limits) -> float:
         else:
             duration = (durations[index - 1] + durations[index]) / 2.0
         acceleration_durations.append(duration)
-        accelerations.append(
-            {name: (right[name] - left[name]) / duration for name in names}
-        )
+        accelerations.append({name: (right[name] - left[name]) / duration for name in names})
     acceleration_ratio = max(
         abs(acceleration[name]) / limits[name].max_acceleration
         for acceleration in accelerations
@@ -513,17 +469,10 @@ def _projected_path_time_scale(points, limits) -> float:
 
     jerk_ratio = 0.0
     for index, (left, right) in enumerate(zip(accelerations, accelerations[1:])):
-        duration = (
-            acceleration_durations[index] + acceleration_durations[index + 1]
-        ) / 2.0
+        duration = (acceleration_durations[index] + acceleration_durations[index + 1]) / 2.0
         jerk_ratio = max(
             jerk_ratio,
-            *(
-                abs(right[name] - left[name])
-                / duration
-                / limits[name].max_jerk
-                for name in names
-            ),
+            *(abs(right[name] - left[name]) / duration / limits[name].max_jerk for name in names),
         )
     return max(
         1.0,
@@ -541,8 +490,7 @@ def _linear_joint_path_samples(points, *, maximum_joint_step_rad: float = 0.02):
     samples = [points[0]]
     for left, right in zip(points, points[1:]):
         maximum_delta = max(
-            abs(right.positions[name] - left.positions[name])
-            for name in left.positions
+            abs(right.positions[name] - left.positions[name]) for name in left.positions
         )
         steps = max(1, math.ceil(maximum_delta / maximum_joint_step_rad))
         for step in range(1, steps + 1):
@@ -562,6 +510,7 @@ def _linear_joint_path_samples(points, *, maximum_joint_step_rad: float = 0.02):
                 )
             )
     return samples
+
 
 def _simplify_joint_waypoints(
     goals: list[dict[str, float]],
@@ -584,10 +533,7 @@ def _simplify_joint_waypoints(
             continue
         start = goals[first]
         end = goals[last]
-        direction = {
-            name: end[name] - start[name]
-            for name in names
-        }
+        direction = {name: end[name] - start[name] for name in names}
         direction_norm_squared = sum(value * value for value in direction.values())
         maximum_error = -1.0
         maximum_index = first
@@ -600,17 +546,13 @@ def _simplify_joint_waypoints(
                 # 把同一直线上的加减速采样误判为弯曲，从而保留数千个路点。
                 # 这里按关节空间到首尾线段的投影计算误差；真实转弯仍由递归
                 # 分段保留，纯时间采样密度不再影响几何简化结果。
-                ratio = sum(
-                    (point[name] - start[name]) * direction[name]
-                    for name in names
-                ) / direction_norm_squared
+                ratio = (
+                    sum((point[name] - start[name]) * direction[name] for name in names)
+                    / direction_norm_squared
+                )
                 ratio = min(1.0, max(0.0, ratio))
             error = max(
-                abs(
-                    point[name]
-                    - (start[name] + direction[name] * ratio)
-                )
-                for name in names
+                abs(point[name] - (start[name] + direction[name] * ratio)) for name in names
             )
             if error > maximum_error:
                 maximum_error = error

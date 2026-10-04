@@ -1,18 +1,3 @@
-# Copyright 2026 InsightOS
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """Robot SDK 公共数据模型。
 
 公共长度单位为米、角度单位为弧度、时间单位为秒，四元数顺序固定为 xyzw。
@@ -53,6 +38,7 @@ class PlanKind(str, Enum):
     JOINT = "joint_trajectory"
     BASE = "base_trajectory"
     GRIPPER = "gripper_command"
+    CONTROL = "control_sequence"
 
 
 class Pose(StrictModel):
@@ -210,6 +196,8 @@ class MotionPlan(StrictModel):
             PlanKind.BASE: bool(self.base_trajectory),
             PlanKind.GRIPPER: self.gripper_command is not None,
         }
+        if self.kind is PlanKind.CONTROL:
+            raise ValueError("定时控制使用 ControlSequence，不属于几何规划 MotionPlan")
         if not payloads[self.kind]:
             raise ValueError(f"{self.kind.value} 计划缺少对应载荷")
         if sum(payloads.values()) != 1:

@@ -1,18 +1,3 @@
-# Copyright 2026 InsightOS
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """R1 Pro 本地路径规划和受限底盘轨迹 Provider。
 
 路径规划采用 plugin-mujoco 的矩形障碍 A* 模型：障碍矩形按
@@ -77,9 +62,7 @@ class LocalNavigationProvider:
         footprint = capabilities.base_footprint_radius_m
         if footprint is None:
             raise PlanningError("Robot Profile 缺少底盘外形")
-        self.base_half_size_m = float(
-            footprint if base_half_size_m is None else base_half_size_m
-        )
+        self.base_half_size_m = float(footprint if base_half_size_m is None else base_half_size_m)
         if self.base_half_size_m <= 0:
             raise ValueError("base_half_size_m 必须大于零")
         if maximum_expanded_nodes <= 0:
@@ -188,8 +171,12 @@ class LocalNavigationProvider:
                 + occupancy.resolution_m * math.sqrt(2.0) / 2.0
             )
             reach = math.ceil(escape_radius / occupancy.resolution_m) + 1
-            for cell_x in range(max(0, start_cell[0] - reach), min(occupancy.width, start_cell[0] + reach + 1)):
-                for cell_y in range(max(0, start_cell[1] - reach), min(occupancy.height, start_cell[1] + reach + 1)):
+            for cell_x in range(
+                max(0, start_cell[0] - reach), min(occupancy.width, start_cell[0] + reach + 1)
+            ):
+                for cell_y in range(
+                    max(0, start_cell[1] - reach), min(occupancy.height, start_cell[1] + reach + 1)
+                ):
                     cell = (cell_x, cell_y)
                     if cell not in blocked or cell in occupancy.occupied:
                         continue
@@ -205,9 +192,7 @@ class LocalNavigationProvider:
                 blocked.discard(start_cell)
             blocked = frozenset(blocked)
 
-        resolved_goal = resolve_nearby_free_goal(
-            occupancy, frozenset(blocked), goal.position[:2]
-        )
+        resolved_goal = resolve_nearby_free_goal(occupancy, frozenset(blocked), goal.position[:2])
         clearance = None
         if self.clearance_cost_radius > 0 and self.clearance_cost_weight > 0:
             clearance = (

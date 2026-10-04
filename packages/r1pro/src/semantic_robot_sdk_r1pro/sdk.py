@@ -1,18 +1,3 @@
-# Copyright 2026 InsightOS
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """按统一部署配置装配 R1 Pro 的模块、Backend 和 Provider。"""
 
 from __future__ import annotations
@@ -23,7 +8,7 @@ from typing import Callable
 
 from semantic_robot_sdk_core import BackendUnavailable, RobotDeployment, load_robot_deployment
 
-from .backends import FakeBackend, IsaacBackend, RealBackend, SharedFakeBackend
+from .backends import FakeBackend, RealBackend, SharedFakeBackend
 from .modules import (
     BaseModule,
     CommandsModule,
@@ -168,7 +153,9 @@ class R1ProSDK:
         elif robot.backend == "real":
             backend = RealBackend(driver=driver)
         else:
-            backend = IsaacBackend()
+            raise BackendUnavailable(
+                "拆码垛型号不支持 Isaac；BEHAVIOR 使用 r1pro 普通夹爪的 IsaacBackend"
+            )
 
         selection = robot.sdk.providers
         if robot.backend == "fake" and selection.kinematics in {"fake", "local"}:

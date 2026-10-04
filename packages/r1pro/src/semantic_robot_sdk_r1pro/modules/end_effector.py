@@ -1,18 +1,3 @@
-# Copyright 2026 InsightOS
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """左右夹爪控制入口。"""
 
 import uuid
@@ -35,8 +20,7 @@ class EndEffectorModule:
         descriptor = next((tool for tool in profile.tools if tool.side == side), None)
         if descriptor is not None and force_limit_n > descriptor.maximum_force_n:
             raise PlanningError(
-                f"夹具 {side} 力限制 {force_limit_n}N 超过Profile峰值 "
-                f"{descriptor.maximum_force_n}N"
+                f"夹具 {side} 力限制 {force_limit_n}N 超过Profile峰值 {descriptor.maximum_force_n}N"
             )
         return MotionPlan(
             plan_id=str(uuid.uuid4()),

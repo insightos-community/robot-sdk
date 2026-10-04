@@ -1,0 +1,157 @@
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_TAG =~ /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.(0|[1-9][0-9]*))?$/'
+    - when: never
+
+stages: [validate, test, build]
+
+# Job 脚本直接调用 Makefile target 底层的命令，不经过 make：
+# uv 官方 slim 镜像（含 trixie-slim/bookworm-slim 变体）不带 make，
+# 为避免在镜像内 apt 安装引入对 Debian 源的额外网络依赖，CI 显式展开命令。
+default:
+  image: ghcr.io/astral-sh/uv:0.11.14-python3.11-trixie-slim
+  cache:
+    key: "semantic-robot-sdk-python311"
+    paths: [.cache/uv]
+
+variables:
+  PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+  LIBERO_REVISION: "8f1084e3132a39270c3a13ebe37270a43ece2a01"
+
+.verify_rules:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+    - when: never
+
+.v040_real_rules:
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v0\.4\.[0-9]+(-rc\.[0-9]+)?$/'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - when: never
+
+lint:
+  stage: validate
+  extends: .verify_rules
+  script:
+    - uv lock --check
+    - uv sync --frozen --all-packages --group test --all-extras
+    - uv run --group test ruff check packages tests integration-tests
+    - uv run --group test ruff format --check packages tests integration-tests
+
+test:
+  stage: test
+  extends: .verify_rules
+  script:
+    - uv sync --frozen --all-packages --group test --all-extras
+    - PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --group test --all-extras python -m pytest -q
+
+contracts:
+  stage: test
+  extends: .verify_rules
+  script:
+    - uv sync --frozen --all-packages --group test --all-extras
+    - PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --group test --all-extras
+      python -m pytest -q tests/conformance/test_canonical_fixtures.py
+
+# 真实模型、Runtime 与数据不进入普通 Job。RC/正式标签会创建全部专项 Job；
+# 每个 Make target 都先检查路径或 URL，因此缺少 Runner 挂载不能得到绿色结果。
+r1pro_model_real:
+  stage: test
+  tags: [semantic-v040-native]
+  extends: .v040_real_rules
+  script:
+    - test -n "$R1PRO_ASSET_ROOT"
+    - uv sync --frozen --all-packages --group test --all-extras
+    - PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --group test --all-extras
+      python -m pytest -q integration-tests/test_r1pro_model.py
+
+franka_model_real:
+  stage: test
+  tags: [semantic-v040-native]
+  extends: .v040_real_rules
+  script:
+    - test -n "$FRANKA_MODEL_ROOT"
+    - uv sync --frozen --all-packages --group test --all-extras
+    - PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --group test --all-extras
+      python -m pytest -q integration-tests/test_franka_model.py
+
+plugin_runtime_real:
+  stage: test
+  tags: [semantic-v040-native]
+  extends: .v040_real_rules
+  script:
+    - test -n "$R1PRO_ASSET_ROOT"
+    - test -n "$PLUGIN_MUJOCO_URL"
+    - uv sync --frozen --all-packages --group test --all-extras
+    - PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --group test --all-extras
+      python -m pytest -q integration-tests/test_plugin_runtime.py
+
+profile_runtime_real:
+  stage: test
+  tags: [semantic-mujoco-robosuite]
+  extends: .v040_real_rules
+  script:
+    - test -n "$PLUGIN_MUJOCO_PROFILE_URL"
+    - test -n "$FRANKA_MODEL_ROOT"
+    - uv sync --frozen --all-packages --group test --all-extras
+    - PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --group test --all-extras
+      python -m pytest -q integration-tests/test_profile_runtime.py
+
+# 固定 libero_spatial:0/init-0 的 Franka Backend/Profile 组合。
+profile_libero_real:
+  stage: test
+  tags: [semantic-mujoco-libero]
+  extends: .v040_real_rules
+  script:
+    - test -n "$PLUGIN_MUJOCO_PROFILE_URL"
+    - test -n "$FRANKA_MODEL_ROOT"
+    - test -n "$SEMANTIC_LIBERO_ROOT"
+    - test -n "$SEMANTIC_LIBERO_REVISION"
+    - test "$SEMANTIC_LIBERO_REVISION" = "$LIBERO_REVISION"
+    - test "$(git -C "$SEMANTIC_LIBERO_ROOT" rev-parse HEAD)" = "$SEMANTIC_LIBERO_REVISION"
+    - test -n "$SIMULATION_EVIDENCE_DIR"
+    - test "$SIMULATION_EVIDENCE_DIR" = "$CI_PROJECT_DIR/.output/test-evidence"
+    - uv sync --frozen --all-packages --group test --all-extras
+    - mkdir -p "$SIMULATION_EVIDENCE_DIR/sdk"
+    - PLUGIN_MUJOCO_PROFILE_ID=libero-robosuite-1.4
+      PLUGIN_MUJOCO_PROFILE_SCENE=libero_spatial:0 PLUGIN_MUJOCO_PROFILE_LAYOUT=init-0
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --group test --all-extras python -m pytest -q
+      --junitxml="$SIMULATION_EVIDENCE_DIR/sdk/libero-profile.xml" integration-tests/test_profile_runtime.py
+  artifacts:
+    when: always
+    paths: [.output/test-evidence/sdk/]
+    reports:
+      junit: .output/test-evidence/sdk/libero-profile.xml
+    expire_in: 30 days
+
+build:
+  stage: build
+  extends: .verify_rules
+  needs:
+    - lint
+    - test
+    - contracts
+    - job: r1pro_model_real
+      optional: true
+    - job: franka_model_real
+      optional: true
+    - job: plugin_runtime_real
+      optional: true
+    - job: profile_runtime_real
+      optional: true
+    - job: profile_libero_real
+      optional: true
+  script:
+    - uv build --all-packages
+  artifacts:
+    paths: [dist/]
+    expire_in: 7 days
