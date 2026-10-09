@@ -1,7 +1,10 @@
 # Semantic Robot SDK
 
-本仓库维护 Robot SDK 的公共规范和各机器人型号实现。根目录只是开发工作区，不发布
-包含所有型号的混合 Wheel：
+[English](README.md) | [简体中文](README.zh-CN.md)
+
+This repository maintains the public specification of the Robot SDK and the
+implementations for each robot model. The root directory is only a development
+workspace; it does not publish a mixed Wheel containing all models:
 
 ```text
 packages/core    semantic-robot-sdk-core
@@ -9,14 +12,27 @@ packages/r1pro   semantic-robot-sdk-r1pro
 packages/franka  semantic-robot-sdk-franka
 ```
 
-`core` 只提供公共类型、错误、Backend/Provider 接口、命令反馈与停止、统一部署配置、
-订阅协议和 Fake 共同测试。机器人型号、关节名称、URDF、Pinocchio、Ruckig、导航算法、
-厂商接口和 MuJoCo HTTP 路径均留在对应型号包。
+`core` provides only common types, errors, the Backend/Provider interfaces, command
+feedback and stopping, unified deployment configuration, the subscription protocol,
+and shared Fake tests. Robot models, joint names, URDF, Pinocchio, Ruckig, navigation
+algorithms, vendor interfaces, and MuJoCo HTTP paths all stay in the corresponding
+model package.
 
-## 安装和引用
+## Project Structure
 
-Ability 环境安装公共 Core 与当前 Robot 型号对应的 Wheel，并通过正常 Python Import
-使用 SDK；正式部署不把本仓库源码目录加入 `PYTHONPATH`。
+| Path | Responsibility |
+|---|---|
+| `packages/core/` | Common models, resource contracts, backends, and motion primitives |
+| `packages/r1pro/` | R1 Pro adaptation |
+| `packages/franka/` | Franka adaptation |
+| `tests/` | Contract and unit tests |
+| `integration-tests/` | Integration tests that depend on assets / Runtime |
+
+## Installation and Usage
+
+The Ability environment installs the common Core and the Wheel matching the current
+Robot model, and uses the SDK through normal Python imports; production deployments
+do not add this repository's source directory to `PYTHONPATH`.
 
 ```bash
 python -m pip install \
@@ -32,49 +48,54 @@ with R1ProSDK.from_environment() as robot:
     frame = robot.sensors.latest("camera.rgb")
 ```
 
-同型号机器人共享同一组 Wheel；每台 Robot 通过独立的 `RobotDeployment` 和运行数据目录
-隔离身份、连接、命令和状态。
+Robots of the same model share the same set of Wheels; each Robot isolates its
+identity, connections, commands, and state through its own `RobotDeployment` and
+runtime data directory.
 
-## R1 Pro 结构
+## R1 Pro Structure
 
-原生 cuRobo 的单 link 与固定多 link 持物支持见
-[固定多 link 附着说明](packages/r1pro/FIXED_ATTACHMENTS.md)。
+For native cuRobo single-link and fixed multi-link object-carrying support, see the
+[fixed multi-link attachment guide](packages/r1pro/FIXED_ATTACHMENTS.md).
 
 ```text
 semantic_robot_sdk_r1pro
-├── modules       Ability 使用的稳定资源接口
+├── modules       Stable resource interfaces used by Abilities
 ├── backends      fake / mujoco / real / isaac
-├── providers     local/vendor kinematics、motion、navigation
-├── profile.py    R1 Pro 固定型号能力
-└── sdk.py        按部署配置装配以上组件
+├── providers     local/vendor kinematics, motion, navigation
+├── profile.py    R1 Pro fixed model capabilities
+└── sdk.py        Assembles the above components from the deployment configuration
 ```
 
-- Backend 只访问状态、底层轨迹、夹爪、传感器、stop 和 hold。
-- Provider 负责 IK、轨迹生成和路径规划；MuJoCo Runtime 不承担这些算法。
-- `real` 必须注入真实厂商驱动；`isaac` 在 v0.5 明确返回未实现。
-- Fake 提供命令去重、反馈顺序、资源互斥、状态变化和停止证据。
+- The Backend only accesses state, low-level trajectories, the gripper, sensors, stop, and hold.
+- Providers handle IK, trajectory generation, and path planning; the MuJoCo Runtime does not implement these algorithms.
+- `real` must be injected with the actual vendor driver; `isaac` explicitly returns unimplemented in v0.5.
+- Fake provides command deduplication, feedback ordering, resource mutual exclusion, state transitions, and stop evidence.
 
-Fake 抓取环境通过 RobotDeployment 的 `robot.sdk.options.initial_grasp_targets` 声明。
-共享状态文件第一次创建时，Robot SDK 会自动写入这些环境事实；七个 Ability 后续
-启动或重启只读取同一状态，不会重复初始化。底层测试仍可直接调用
-`configure_grasp_fixture(...)` 或 `set_tool_contact_state(...)` 设置接触测试状态。此后
-关闭和释放只更新工具接触、力与 `contact` SensorFrame；稳定承载和抓取成功仍由
-Ability根据连续状态判断。没有fixture时关闭夹爪不会伪造接触成功。
+The Fake grasp environment is declared via `robot.sdk.options.initial_grasp_targets`
+in the RobotDeployment. When the shared state file is first created, the Robot SDK
+automatically writes these environment facts; the seven Abilities only read the same
+state on subsequent starts or restarts and never re-initialize it. Low-level tests can
+still call `configure_grasp_fixture(...)` or `set_tool_contact_state(...)` directly to
+set up contact test state. Afterwards, closing and releasing only update tool contact,
+force, and the `contact` SensorFrame; stable carrying and grasp success are still
+determined by the Ability from continuous state. Without a fixture, closing the
+gripper does not fake a contact success.
 
-## 一台 Robot 一份配置
+## One Robot, One Configuration
 
-Ability 和 Pilot 统一读取：
+Ability and Pilot both read:
 
 ```bash
 export SEMANTIC_ROBOT_CONFIG=/etc/semantic/robots/r1pro-001/robot-deployment.yaml
 ```
 
-配置样例位于 `examples/robot-deployment.fake.yaml` 和
-`examples/robot-deployment.mujoco.yaml`。Endpoint、固件和 Provider 只写在这份部署
-配置中，不重复写入每个 Ability CR。
+Configuration examples live in `examples/robot-deployment.fake.yaml` and
+`examples/robot-deployment.mujoco.yaml`. Endpoint, firmware, and Provider are written
+only in this deployment configuration, not repeated in every Ability CR.
 
-同一主机运行多个仿真 Robot 时，每组 Pilot、AbilityFramework 和 Ability 可以覆盖
-自己的 Runtime 地址。环境变量优先于 YAML 中的 `robot.sdk.endpoint`：
+When running multiple simulation Robots on the same host, each group of Pilot,
+AbilityFramework, and Ability can override its own Runtime address. Environment
+variables take precedence over `robot.sdk.endpoint` in the YAML:
 
 ```bash
 SEMANTIC_ROBOT_CONFIG=/etc/semantic/robots/r1pro-sim.yaml \
@@ -82,8 +103,8 @@ SEMANTIC_ROBOT_SDK_ENDPOINT=http://127.0.0.1:8091 \
 semantic-pilot ...
 ```
 
-如果多个虚拟 Robot 位于同一个 Runtime，它们可以使用相同 Endpoint，并由各自的
-`robot.id` 精确路由：
+If multiple virtual Robots live in the same Runtime, they can use the same Endpoint
+and are routed precisely by their respective `robot.id`:
 
 ```yaml
 # r1pro-001/robot-deployment.yaml
@@ -107,48 +128,56 @@ robot:
     endpoint: http://127.0.0.1:8090
 ```
 
-如果 Robot 位于不同 Runtime，每组进程使用不同的 `SEMANTIC_ROBOT_SDK_ENDPOINT`
-即可覆盖模板地址。Robot ID、坐标系、Provider 和安全限制仍由部署配置保存；环境变量
-只覆盖 Endpoint，不改变 Robot 身份。
+If the Robots live in different Runtimes, each group of processes uses a different
+`SEMANTIC_ROBOT_SDK_ENDPOINT` to override the template address. Robot ID, coordinate
+frames, Provider, and safety limits are still kept in the deployment configuration;
+the environment variable only overrides the Endpoint and does not change the Robot
+identity.
 
-同一型号的多个 Robot 实例不会复制 Wheel。正式部署由机器人类型包共享 SDK 制品，
-只在每台 Robot 的实例目录生成 `robot-deployment.yaml`。
+Multiple Robot instances of the same model do not duplicate Wheels. Production
+deployments share the SDK artifacts through the robot type package and only generate
+`robot-deployment.yaml` in each Robot's instance directory.
 
-Ability 使用的 v0.5 稳定入口如下：
+The v0.5 stable entry points used by Abilities are:
 
-- `state.capabilities()`、`state.snapshot()`。
-- `base.plan_route(goal, occupancy=None, minimum_clearance_m=None)`、
-  `base.follow_route(plan, command_id=...)`、
-  `base.navigate(goal, command_id=..., occupancy=None, minimum_clearance_m=None)`。
-- `upper_body.plan_joints(...)`、`move_joints(...)`、`plan_end_effector(...)` 和
-  `move_end_effector(...)`。
-- `end_effector.set_opening(...)`、`close_until_contact(...)`、`release(...)`。
-- `sensors.list()`、`latest(...)`、`subscribe(...)` 和 `subscribe_state(...)`。
-- `commands.get(...)`、`feedback(...)`、`stop(...)`。
-- `safety.stop_and_hold(...)`、`hold()`。
+- `state.capabilities()`, `state.snapshot()`.
+- `base.plan_route(goal, occupancy=None, minimum_clearance_m=None)`,
+  `base.follow_route(plan, command_id=...)`,
+  `base.navigate(goal, command_id=..., occupancy=None, minimum_clearance_m=None)`.
+- `upper_body.plan_joints(...)`, `move_joints(...)`, `plan_end_effector(...)`, and
+  `move_end_effector(...)`.
+- `end_effector.set_opening(...)`, `close_until_contact(...)`, `release(...)`.
+- `sensors.list()`, `latest(...)`, `subscribe(...)`, and `subscribe_state(...)`.
+- `commands.get(...)`, `feedback(...)`, `stop(...)`.
+- `safety.stop_and_hold(...)`, `hold()`.
 
-本地导航的 `occupancy` 是可选覆盖参数，不要求 Navigation Ability 构造 SDK 内部栅格。
-SDK 优先使用装配时注入的 `NavigationMapSource`，也可读取
-`robot.sdk.options.navigation_map_source` 中的固定场景地图。Fake 后端在没有配置时使用
-明确标记的测试空地图；MuJoCo 和真机使用本地规划却没有地图来源时会明确失败。厂商
-Navigation Provider 可以从厂商导航服务自行取图。
+The `occupancy` parameter of local navigation is an optional override and does not
+require the Navigation Ability to construct an SDK-internal grid. The SDK prefers the
+`NavigationMapSource` injected at assembly time, and can also read the fixed scene map
+in `robot.sdk.options.navigation_map_source`. The Fake backend uses an explicitly
+marked empty test map when nothing is configured; MuJoCo and physical robots fail
+explicitly when local planning is used without a map source. A vendor Navigation
+Provider can fetch maps from the vendor navigation service itself.
 
-运动接口始终使用调用方提供的稳定 `command_id`。重复 ID 与相同内容返回原命令；
-内容不同会被拒绝。停止通过 `robot.safety.stop_and_hold(command_id)` 进入底层并验证
-hold；无法确认物理状态时返回 `interrupted`。
+The motion interfaces always use the caller-provided stable `command_id`. A repeated
+ID with identical content returns the original command; different content is rejected.
+Stopping goes through `robot.safety.stop_and_hold(command_id)`, enters the low level,
+and verifies hold; when the physical state cannot be confirmed it returns
+`interrupted`.
 
-## MuJoCo 边界
+## MuJoCo Boundary
 
-R1 Pro MuJoCo Backend 只消费 `plugin-mujoco-v040-platform` 已有的 Robot Profile、
-state、command、stop/hold、sensor 和 WebSocket 流接口。本仓库不修改或内嵌 Runtime。
-真实组合测试由调用方先启动固定版本 Runtime：
+The R1 Pro MuJoCo Backend only consumes the existing Robot Profile, state, command,
+stop/hold, sensor, and WebSocket streaming interfaces of
+`plugin-mujoco-v040-platform`. This repository does not modify or embed the Runtime.
+For real combined tests, the caller starts the pinned-version Runtime first:
 
 ```bash
 PLUGIN_MUJOCO_URL=http://127.0.0.1:8090 \
 R1PRO_ASSET_ROOT=/path/to/mujoco_asset make test-plugin
 ```
 
-## 开发与构建
+## Development and Build
 
 ```bash
 uv sync --all-packages --group test
@@ -157,6 +186,30 @@ make test
 make build
 ```
 
-`make build` 分别生成三个 Wheel。模型与 Runtime 专项测试不会因缺少外部资产而伪装
-通过；运行 `make test-r1pro`、`make test-franka` 或 `make test-plugin` 前必须显式提供
-对应环境变量。
+`make build` produces the three Wheels separately. Model and Runtime-specific tests do
+not fake a pass when external assets are missing; you must explicitly provide the
+corresponding environment variables before running `make test-r1pro`,
+`make test-franka`, or `make test-plugin`.
+
+## FAQ
+
+- Fake contract tests do not validate real hardware or rendering.
+- Integration targets require explicitly provided assets and a compatible running Runtime; some tests create and stop simulation scenes.
+- When a native dependency fails to load, check the Wheel ABI, Python, and shared library versions instead of modifying import paths.
+- Deployments use the installed Wheels; source `PYTHONPATH` overrides are for development only.
+
+## Related Documents
+
+[Detailed technical reference](README.reference.md) · [Build and test targets](Makefile)
+
+## License
+
+Copyright 2026 InsightOS. First-party code is licensed under [Apache-2.0](LICENSE); for
+third-party components and assets, see [NOTICE](NOTICE) and the
+[license scope](LICENSE_SCOPE.md).
+
+## Reproducible Builds on Three Platforms
+
+See the [glibc, musl, and macOS build instructions](README.build.md): pinned source
+versions, actual script entry points, tool requirements, local and CI commands,
+artifact locations, and platform validation scope.

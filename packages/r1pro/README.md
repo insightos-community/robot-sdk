@@ -1,10 +1,12 @@
 # semantic-robot-sdk-r1pro
 
-R1 Pro 的稳定 modules、Fake/MuJoCo/real/Isaac Backend，以及本地/厂商 Provider 装配。
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-## BEHAVIOR 完整开发观测
+Stable modules for the R1 Pro, Fake/MuJoCo/real/Isaac Backends, and local/vendor Provider assembly.
 
-使用 Semantic 场景部署给出的 endpoint、机器人 ID、场景 UUID 和 generation：
+## Full BEHAVIOR development observations
+
+Use the endpoint, robot ID, scene UUID, and generation provided by Semantic scene deployment:
 
 ```python
 from semantic_robot_sdk_r1pro.backends.isaac import IsaacBackend
@@ -21,31 +23,38 @@ left_eef = observations.get_ee_pose("left", frame_id="body")
 gripper = observations.get_gripper_state("left")
 ```
 
-RGBD 及二进制策略观测需要 `isaac` extra（NumPy / SciPy）。标定随图像返回，也可通过
-`get_camera_calibration("head", calibration_id)` 读取原帧。末端接口支持
-`body`、`base_link`、`torso_link4`、`world`；输出 `data` 保持现用 Ability 的
-PoseStamped 字段格式，夹爪保留米、米/秒和牛顿读回字段。
+RGBD and binary policy observations require the `isaac` extra (NumPy / SciPy). Calibration is
+returned with the image, and the original frame can also be read via
+`get_camera_calibration("head", calibration_id)`. The end-effector interface supports
+`body`, `base_link`, `torso_link4`, and `world`; the output `data` keeps the PoseStamped
+field format of the current Ability, and the gripper retains the meter, meter/second, and
+newton readback fields.
 
-`capture_rgbd_frames()` 返回现有感知 Ability 所需的 RGB/深度 SensorFrame，包含
-同帧 timestamp、step_count、内参和 USD 相机外参，可交给 `validate_pair()`。
-该客户端只读 Runtime 数据；现用 Ability 的整体 SDK 门面及原子运动控制迁移仍需接入。
-客户端不创建仿真、推流或 reset。
-reset 后应使用新 generation 创建观测客户端。旧客户端会收到明确错误。
-定位及碰撞网格属于完整开发观测，其中定位标记 `simulation_ground_truth`。
+`capture_rgbd_frames()` returns the RGB/depth SensorFrame required by the existing
+perception Ability, with same-frame timestamp, step_count, intrinsics, and USD camera
+extrinsics, ready to hand to `validate_pair()`. This client only reads Runtime data; the
+overall SDK facade of the current Ability and the migration of atomic motion control still
+need to be integrated. The client does not create simulations, streams, or resets.
+After a reset, create the observation client with the new generation. Old clients receive
+an explicit error. Localization and collision meshes are part of the full development
+observations, with localization marked `simulation_ground_truth`.
 
 
-## BEHAVIOR 原子控制门面
+## BEHAVIOR atomic control facade
 
-Isaac 额外依赖安装后，可用 `from galaxea_r1pro import R1ProSDK, RobotProfile, BackendKind`
-连接 Semantic 管理的场景。Profile.options 必须包含 `runtime_endpoint`、
-`scene_instance_id`（UUID）和 `generation`，可选 `request_timeout`。
-`R1ProSDK.open(profile)` 返回现有 Ability 使用的 joint / eef / torso / gripper /
-woosh_move / state / sensors / command / safety 接口。
+With the Isaac extra dependencies installed, use `from galaxea_r1pro import R1ProSDK, RobotProfile, BackendKind`
+to connect to a Semantic-managed scene. Profile.options must include `runtime_endpoint`,
+`scene_instance_id` (UUID), and `generation`, with optional `request_timeout`.
+`R1ProSDK.open(profile)` returns the joint / eef / torso / gripper /
+woosh_move / state / sensors / command / safety interfaces used by the existing Ability.
 
-控制请求通过 HTTP 送到 Runtime；实测位置、速度和原生 episode 结果决定动作状态。
-SDK 的 close 只断开客户端。仿真启动/停止/reset 和相机推流由 Semantic Runtime 管理。
-重置后重新绑定新 generation。底盘反馈来源为 development_full 模式下的场景真值。
-现有定时策略后端也可通过 `backend.atomic_controls(scene_instance_id, generation)`
-取得同一门面。两种控制方式由 Runtime 互斥调度。
+Control requests are sent to the Runtime over HTTP; measured position, velocity, and
+native episode results decide the action status. The SDK's close only disconnects the
+client. Simulation start/stop/reset and camera streaming are managed by the Semantic
+Runtime. Re-bind to the new generation after a reset. The chassis feedback source is the
+scene ground truth in development_full mode. The existing timed policy backend can also
+obtain the same facade via `backend.atomic_controls(scene_instance_id, generation)`.
+The two control modes are mutually exclusively scheduled by the Runtime.
 
-原子协议、字段及原生动作验证脚本见相邻 Isaac Runtime 的 `docs-atomic-sdk.md`。
+See `docs-atomic-sdk.md` in the adjacent Isaac Runtime for the atomic protocol, fields,
+and native action validation scripts.

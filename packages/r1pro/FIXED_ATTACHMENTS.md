@@ -1,27 +1,41 @@
-# cuRobo 固定多 link 持物
+# cuRobo Fixed Multi-Link Object Carrying
 
-原生 Runtime 使用 `CuroboPlanner.prepare()` 在仿真主线程生成数值快照。
-持物身份仍使用原生辅助抓持结果，Skill 输入和 Runtime API 不变。
+[English](FIXED_ATTACHMENTS.md) | [简体中文](FIXED_ATTACHMENTS.zh-CN.md)
 
-单 link 物体沿用原来的附着流程。多个 link 时，`curobo_attachments.py`
-读取物体 USD 子树中的关节，要求所有 link 通过启用的 `PhysicsFixedJoint`
-连成一个整体。可动关节、未连接的 link、连接物体外部或世界的关节继续返回
-`unsupported_attached_object`；即使可动关节当前静止也不会作为固定连接处理。
-不使用 `obj.joints` 判断固定连接，因为原生 articulation 视图可能省略固定关节。
+The native Runtime uses `CuroboPlanner.prepare()` to generate a numeric snapshot on
+the simulation main thread. Carried-object identity still uses the native assisted
+grasp result; Skill inputs and the Runtime API are unchanged.
 
-`scene_geometry()` 已包含所有 link 启用的碰撞网格及其世界坐标顶点。
-`prepare()` 将它们转换到同一个规划基坐标系，并保留每个网格名称。
-数值线程沿用 cuRobo 的 `attach_objects_to_robot(..., merge_meshes=True)`，
-根据实测 EEF 位姿将全部网格合并为夹爪局部附着球，同时禁用对应世界障碍。
-规划清理时 detach 恢复全部对应障碍；释放后的新快照不再附着该物体，并读取
-其当前位置。无碰撞几何的固定元数据 link 不需要虚构网格。
+Single-link objects follow the original attachment flow. With multiple links,
+`curobo_attachments.py` reads the joints in the object's USD subtree and requires all
+links to be connected into one rigid whole through enabled `PhysicsFixedJoint`s.
+Articulated joints, unconnected links, and joints connecting outside the object or to
+the world continue to return `unsupported_attached_object`; an articulated joint is
+not treated as a fixed connection even when it is currently stationary. `obj.joints`
+is not used to determine fixed connections, because the native articulation view may
+omit fixed joints.
 
-已检查的收音机 `wxnicr` 使用两个 link：主体和按钮元数据 link，二者之间
-为固定关节。资产现有 14 个碰撞网格均属于主体，按钮 link 没有碰撞网格。
+`scene_geometry()` already includes the enabled collision meshes of all links with
+their world-coordinate vertices. `prepare()` transforms them into the same planning
+base frame and preserves each mesh name. The numeric thread continues to use cuRobo's
+`attach_objects_to_robot(..., merge_meshes=True)`, merging all meshes into
+gripper-local attached spheres based on the measured EEF pose while disabling the
+corresponding world obstacles. On planning cleanup, detach restores all corresponding
+obstacles; a new snapshot after release no longer attaches the object and reads its
+current position instead. Fixed metadata links without collision geometry do not need
+fabricated meshes.
 
-`tests/conformance/test_curobo_attachments.py` 覆盖单 link 兼容、固定连接链、
-可动/禁用/断开/外部连接拒绝、旋转和平移坐标变换、全量网格附着及释放后快照。
-USD 相关测试需要可导入的 `pxr.Usd` / `pxr.UsdPhysics`；缺失时会跳过这些测试。
+The checked radio `wxnicr` uses two links: the body and a button metadata link,
+connected by a fixed joint. The asset's existing 14 collision meshes all belong to the
+body; the button link has no collision meshes.
 
-本机原生部署通过 `PYTHONPATH` 加载 SDK 源码，修改后需要重启 Runtime 生效。
-仅完成几何和附着验证不等于完整携物轨迹规划或真实执行成功。
+`tests/conformance/test_curobo_attachments.py` covers single-link compatibility, fixed
+connection chains, rejection of articulated/disabled/disconnected/external connections,
+rotation and translation coordinate transforms, full-mesh attachment, and post-release
+snapshots. USD-related tests require importable `pxr.Usd` / `pxr.UsdPhysics`; they are
+skipped when these are missing.
+
+Local native deployments load the SDK source through `PYTHONPATH`, so the Runtime must
+be restarted for changes to take effect. Passing only the geometry and attachment
+validation does not equal successful full carried-object trajectory planning or real
+execution.

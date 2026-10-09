@@ -1,30 +1,36 @@
-# Franka Panda 正式模型包
+# Franka Panda Official Model Bundle
 
-SDK 仓不分发大型 Robot 资产，也不会从 `.venv`、robosuite、Isaac Sim 或 ROS
-安装目录搜索模型。发布流水线需要先在资产仓生成一个独立、可审查的模型包，再把
-模型包根目录通过 `FRANKA_MODEL_ROOT` 交给专项测试；生产代码则直接传入该路径。
+[English](MODEL_BUNDLE.md) | [简体中文](MODEL_BUNDLE.zh-CN.md)
 
-## 来源与许可证
+The SDK repository does not distribute large Robot assets, nor does it search for
+models in `.venv`, robosuite, Isaac Sim, or ROS installation directories. The release
+pipeline must first produce a standalone, reviewable model bundle in the asset
+repository, then hand the bundle root directory to the dedicated tests via
+`FRANKA_MODEL_ROOT`; production code passes that path directly.
 
-模型只接受 Franka Robotics 官方仓库：
+## Sources and Licensing
 
-- `https://github.com/frankarobotics/franka_ros`：传统 Panda 描述的来源。
-- `https://github.com/frankarobotics/franka_description`：当前官方模型仓。
+Models are accepted only from the official Franka Robotics repositories:
 
-两者均以 Apache-2.0 发布，并在仓库中提供 `LICENSE` 和 `NOTICE`。资产 MR 必须：
+- `https://github.com/frankarobotics/franka_ros`: source of the legacy Panda description.
+- `https://github.com/frankarobotics/franka_description`: the current official model repository.
 
-1. 固定一个 Tag 或 Commit，不能记录 `main`、`master` 或 `latest`。
-2. 保存同一 revision 的完整 `LICENSE` 与 `NOTICE`，不能只在 MR 描述里放链接。
-3. 记录生成 `panda_arm_hand.urdf` 的命令和输入；生成结果的根 Link 必须是
-   `panda_link0`，手部末端 Frame 必须是 `panda_hand`。
-4. 保留 URDF 引用的碰撞 Mesh。只有视觉 Mesh、没有碰撞 Mesh 的包不能通过
-   Pinocchio 自碰撞门控。
-5. 由资产负责人核对文件来源和可分发范围。程序校验只能防止漏文件或配错版本，
-   不能代替许可证审查。
+Both are released under Apache-2.0 and provide `LICENSE` and `NOTICE` in the
+repository. An asset MR must:
 
-## 目录和 manifest
+1. Pin a Tag or Commit; it must not record `main`, `master`, or `latest`.
+2. Keep the complete `LICENSE` and `NOTICE` of the same revision; links in the MR description alone are not enough.
+3. Record the command and inputs that generate `panda_arm_hand.urdf`; the root Link of the generated result must be
+   `panda_link0`, and the hand end-effector Frame must be `panda_hand`.
+4. Keep the collision Meshes referenced by the URDF. A bundle with only visual Meshes and no collision Meshes cannot pass
+   the Pinocchio self-collision gate.
+5. Have the asset owner verify file provenance and distributable scope. Programmatic validation can only prevent missing files or wrong pinned versions;
+   it cannot replace a license review.
 
-推荐目录如下；`package_roots` 也允许另一种自包含层级，但不能离开模型包根目录。
+## Directory and Manifest
+
+The recommended layout is as follows; `package_roots` also allows another
+self-contained hierarchy, but it must not leave the model bundle root directory.
 
 ```text
 franka-model-bundle/
@@ -36,11 +42,12 @@ franka-model-bundle/
     └── meshes/...
 ```
 
-`robot-model.json` 使用仓库内的 `model-manifest.example.json` 作为模板。校验器会
-检查型号、URDF 文件名、package root、根坐标系、末端坐标系、Apache-2.0 标记、
-LICENSE、NOTICE、官方来源和固定 revision。路径必须是模型根目录内的相对路径。
+`robot-model.json` uses the in-repo `model-manifest.example.json` as its template. The
+validator checks the model, URDF filename, package root, root frame, end-effector
+frame, the Apache-2.0 marker, LICENSE, NOTICE, the official source, and the pinned
+revision. Paths must be relative to the model root directory.
 
-Franka 工厂只接受模型根目录：
+The Franka factory only accepts the model root directory:
 
 ```python
 from semantic_robot_sdk_franka import create_mujoco_sdk
@@ -48,15 +55,17 @@ from semantic_robot_sdk_franka import create_mujoco_sdk
 sdk = create_mujoco_sdk(runtime_url, robot_id, "/opt/semantic-assets/franka-panda")
 ```
 
-调用方不能再覆盖 URDF、Mesh root 或 `panda_hand`，避免 Runtime Profile 与 IK 使用
-两套模型定义。
+Callers can no longer override the URDF, Mesh root, or `panda_hand`, preventing the
+Runtime Profile and IK from using two different model definitions.
 
-## 正式算法门控
+## Official Algorithm Gate
 
 ```bash
 FRANKA_MODEL_ROOT=/opt/semantic-assets/franka-panda make test-franka
 ```
 
-该测试真实加载 URDF 和碰撞 Mesh，并使用 Pinocchio 计算非零 FK/IK，再用 Ruckig
-生成受关节速度、加速度和加加速度限制的轨迹。未设置环境变量、模型缺失、许可证
-资料不全或算法依赖不可用都会失败，不会用 `skip` 伪装成已经验收。
+This test actually loads the URDF and collision Meshes, computes non-zero FK/IK with
+Pinocchio, and then uses Ruckig to generate trajectories bounded by joint velocity,
+acceleration, and jerk limits. A missing environment variable, missing model,
+incomplete license materials, or unavailable algorithm dependencies all fail the test;
+it will not disguise acceptance with a `skip`.
