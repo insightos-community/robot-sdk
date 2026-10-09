@@ -20,6 +20,13 @@ from scipy.interpolate import PchipInterpolator
 
 
 def retime(positions, dt, velocity, acceleration):
+    """Re-time a joint trajectory to respect per-joint velocity/acceleration caps.
+
+    Fits a shape-preserving PCHIP curve through ``positions`` (zero endpoint
+    derivatives) and rescales time so the per-joint velocity and acceleration
+    limits are never exceeded. ``velocity``/``acceleration`` accept scalars or
+    per-joint arrays. Raises ``ValueError`` on non-finite input or non-positive limits.
+    """
     p = np.asarray(positions, dtype=float)
     v = np.broadcast_to(np.asarray(velocity, dtype=float), (p.shape[1],))
     a = np.broadcast_to(np.asarray(acceleration, dtype=float), (p.shape[1],))
@@ -44,6 +51,7 @@ def retime(positions, dt, velocity, acceleration):
 
 
 def densify(positions, max_joint_step=np.deg2rad(0.5)):
+    """Insert linear waypoints so consecutive joints differ by at most ``max_joint_step`` (radians)."""
     result = [positions[0]]
     for start, end in zip(positions[:-1], positions[1:]):
         steps = max(1, int(np.ceil(np.max(np.abs(end - start)) / max_joint_step)))

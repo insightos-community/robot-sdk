@@ -34,12 +34,19 @@ from scipy.ndimage import distance_transform_edt
 
 
 class NavigationError(ValueError):
+    """Error carrying a machine-readable ``reason`` alongside the human message."""
     def __init__(self, reason, message):
         self.reason = reason
         super().__init__(message)
 
 
 def fingerprint(snapshot):
+    """Stable SHA-256 fingerprint of a snapshot's navigation-relevant content.
+
+    Hashes the scene identity, non-excluded objects, navigation footprint, frame
+    and odom origin in canonical JSON form, so identical scenes map to the same
+    cache key (used for map caching/invalidation).
+    """
     objects = [o for o in snapshot["objects"] if o["name"] not in snapshot["excluded_names"]]
     data = dict(
         version=6,
@@ -153,6 +160,12 @@ def _project(grid, mesh, origin, cell, zmin, zmax, *, support=False):
 
 
 class NavigationMap:
+    """Occupancy grid with a precomputed clearance field for footprint-aware queries.
+
+    ``occupancy`` marks blocked cells; ``clearance`` holds each free cell's distance
+    to the nearest obstacle in meters, so ``free(radius, margin)`` returns cells where
+    a footprint of ``radius`` plus ``margin`` still fits.
+    """
     def __init__(self, occupancy, origin, resolution, metadata):
         self.occupancy = np.asarray(occupancy, dtype=bool)
         self.origin = np.asarray(origin, dtype=float)
@@ -283,6 +296,11 @@ class NavigationMap:
 
 
 def build_map(snapshot, cache_dir, resolution=0.05, refresh=False):
+    """Build (or load from cache) the NavigationMap for a scene snapshot.
+
+    The cache key covers the scene fingerprint, resolution and floor/robot heights,
+    so identical scenes reuse the cached map unless ``refresh`` forces a rebuild.
+    """
     started = time.monotonic()
     floor_z, top_z = snapshot["floor_z"], snapshot["robot_top_z"]
     key = hashlib.sha256(

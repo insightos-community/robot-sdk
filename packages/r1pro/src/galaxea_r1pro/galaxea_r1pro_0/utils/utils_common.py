@@ -38,6 +38,7 @@ def finite_vector(values, size: int, field: str) -> np.ndarray:
 
 
 def pose_matrix(position, orientation) -> np.ndarray:
+    """Build a 4x4 homogeneous transform from a position and an xyzw quaternion."""
     matrix = np.eye(4)
     matrix[:3, 3] = finite_vector(position, 3, "position")
     matrix[:3, :3] = R.from_quat(finite_vector(orientation, 4, "orientation_xyzw")).as_matrix()
@@ -62,6 +63,7 @@ def camera_look_at(position, target) -> list[float]:
 
 
 def matrix_transform(matrix: np.ndarray) -> dict:
+    """Decompose a 4x4 homogeneous transform into ``{"position", "orientation"}`` (inverse of :func:`pose_matrix`)."""
     return {
         "position": tuple(float(x) for x in matrix[:3, 3]),
         "orientation": tuple(float(x) for x in R.from_matrix(matrix[:3, :3]).as_quat()),
@@ -76,6 +78,7 @@ def pose_error(actual: np.ndarray, target: np.ndarray) -> tuple[float, float]:
 
 
 def wrap_angle(angle: float) -> float:
+    """Wrap an angle to the half-open interval ``[-pi, pi)``."""
     return float((angle + np.pi) % (2 * np.pi) - np.pi)
 
 

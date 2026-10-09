@@ -84,6 +84,13 @@ def _enclosing_ball(v):
 
 
 def palm_mesh_spheres(v, limit=0.022):
+    """Approximate a palm point cloud with a compact set of spheres.
+
+    Returns a single enclosing sphere when the cloud already fits within
+    ``limit``; otherwise splits it across the dominant axis and packs spheres
+    along the convex-hull edges. Each entry is ``{"center": [x, y, z], "radius": r}``
+    with ``MESH_MARGIN_M`` added to the radius.
+    """
     v = np.array(v)
     c, r = _enclosing_ball(v)
     if r <= limit + 1e-9:
